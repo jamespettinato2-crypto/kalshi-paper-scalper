@@ -20,3 +20,13 @@ A mobile-friendly paper trading dashboard with a FastAPI backend proxy for Kalsh
 - Reset balance accepts any positive amount.
 - Simplified simulated fills; does not model order queue, slippage or all fees.
 - Live trading is not implemented. Profit is not guaranteed.
+
+## Server scanner
+
+The dashboard includes a server-side scanner API:
+- `POST /api/scanner/start` starts scanning Kalshi's public open markets.
+- `POST /api/scanner/stop` stops it.
+- `GET /api/scanner/status` returns scanner status, latest signals, errors, and scan interval.
+- Scanner enabled state and recent price baselines are stored in SQLite.
+
+Set `DATABASE_PATH` to a persistent disk path on a paid Render service to retain scanner settings and baselines across restarts. Render Free services can sleep and have ephemeral filesystems, so they cannot guarantee 24/7 scanning or durable paper-account history. The scanner currently reports momentum signals; it does not place server-side paper trades. Paper positions and balance remain browser-local until a persistent paper-account API is implemented.
