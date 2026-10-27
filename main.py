@@ -91,7 +91,7 @@ async function refreshScannerStatus(){
  $('scanStatus').className='status '+(scannerOn?'good':'');
  }catch(e){$('scanStatus').textContent='Scanner status unavailable'}
 }
-$('load').onclick=load;$('scanToggle').onclick=()=>setScanner(!scannerOn);$('filter').onchange=renderMarkets;$('reset').onclick=()=>{let n=Number($('resetAmount').value);if(!(n>0&&Number.isFinite(n)))return alert('Enter a positive amount');if(!confirm('Reset paper account to '+money(n)+'? This clears trades and positions.'))return;balance=n;pnl=0;positions=[];history=[];equity=[n];previousQuotes={};seenSignals=new Set();render();saveState()};restoreState();render();setScanner(true);load();
+$('load').onclick=load;$('scanToggle').onclick=()=>setScanner(!scannerOn);$('filter').onchange=renderMarkets;$('reset').onclick=()=>{let n=Number($('resetAmount').value);if(!(n>0&&Number.isFinite(n)))return alert('Enter a positive amount');if(!confirm('Reset paper account to '+money(n)+'? This clears trades and positions.'))return;balance=n;pnl=0;positions=[];history=[];equity=[n];previousQuotes={};seenSignals=new Set();render();saveState()};restoreState();render();refreshScannerStatus();load();
 </script></body></html>"""
 
 
