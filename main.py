@@ -108,16 +108,38 @@ async def health():
 
 @app.get("/api/markets")
 async def get_markets(status: str = "open", limit: int = 1000):
-    limit = max(1, min(limit, 1000))
+    # Kalshi returns markets in cursor-paginated pages. A single request only
+    # returns the first page, so keep following cursors to scan broadly.
+    page_size = max(1, min(limit, 1000))
+    max_pages = 20  # bounded scan: up to 20,000 markets per refresh
+    markets = []
+    cursor = None
+    pages_scanned = 0
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.get(
-                f"{KALSHI}/markets",
-                params={"status": status, "limit": limit},
-                headers={"Accept": "application/json"},
-            )
-        response.raise_for_status()
-        return response.json()
+        async with httpx.AsyncClient(timeout=25) as client:
+            for _ in range(max_pages):
+                params = {"status": status, "limit": page_size}
+                if cursor:
+                    params["cursor"] = cursor
+                response = await client.get(
+                    f"{KALSHI}/markets",
+                    params=params,
+                    headers={"Accept": "application/json"},
+                )
+                response.raise_for_status()
+                payload = response.json()
+                batch = payload.get("markets", [])
+                markets.extend(batch)
+                pages_scanned += 1
+                cursor = payload.get("cursor")
+                if not cursor or not batch:
+                    break
+        return {
+            "markets": markets,
+            "pages_scanned": pages_scanned,
+            "scan_complete": not bool(cursor),
+            "next_cursor": cursor,
+        }
     except httpx.HTTPStatusError as exc:
         raise HTTPException(502, f"Kalshi API returned HTTP {exc.response.status_code}")
     except httpx.TimeoutException:
