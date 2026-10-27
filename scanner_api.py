@@ -10,7 +10,7 @@ router = APIRouter()
 KALSHI = "https://api.elections.kalshi.com/trade-api/v2"
 DB_PATH = os.environ.get("DATABASE_PATH", "paper_scalper.db")
 INTERVAL = max(30, int(os.environ.get("SCANNER_INTERVAL_SECONDS", "60")))
-enabled = False
+enabled = True
 task = None
 last_scan = None
 last_error = None
@@ -32,6 +32,8 @@ def load(key, default=None):
     with connect() as con:
         row = con.execute("SELECT value FROM scanner_settings WHERE key=?", (key,)).fetchone()
         return json.loads(row[0]) if row else default
+
+enabled = bool(load('enabled', True))
 
 async def fetch_markets():
     result, cursor = [], None
@@ -83,6 +85,10 @@ async def loop():
 
 @router.get("/api/scanner/status")
 async def status():
+    global task, previous
+    if enabled and (task is None or task.done()):
+        previous = load("previous", {})
+        task = asyncio.create_task(loop())
     return {"enabled":enabled, "last_scan":last_scan, "markets_scanned":market_count,
             "signals":signals, "last_error":last_error, "interval_seconds":INTERVAL,
             "note":"Server-side scanner only runs while Render service is awake. Signals are informational; this endpoint does not place trades."}
