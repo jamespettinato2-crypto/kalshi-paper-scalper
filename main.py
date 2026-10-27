@@ -1,13 +1,13 @@
 import os
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 app = FastAPI(title="Kalshi Paper Scalper")
 KALSHI = "https://api.elections.kalshi.com/trade-api/v2"
 
 PAGE = r"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#070b12"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/app-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/app-icon.svg">
 <title>Kalshi Paper Scalper</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
@@ -71,6 +71,29 @@ function draw(){let v=equity.concat([balance]),lo=Math.min(...v),hi=Math.max(...
 let scannerTimer=null,scannerOn=true;function setScanner(on){scannerOn=on;$('scanToggle').textContent=on?'Pause scanning':'Resume scanning';$('scanStatus').textContent=on?'Auto-refresh every 15 seconds':'Scanner paused';$('scanStatus').className='status '+(on?'good':'');if(scannerTimer)clearInterval(scannerTimer);scannerTimer=on?setInterval(()=>{if(!document.hidden)load()},15000):null}
 $('load').onclick=load;$('scanToggle').onclick=()=>setScanner(!scannerOn);$('filter').onchange=renderMarkets;$('reset').onclick=()=>{let n=Number($('resetAmount').value);if(!(n>0&&Number.isFinite(n)))return alert('Enter a positive amount');if(!confirm('Reset paper account to '+money(n)+'? This clears trades and positions.'))return;balance=n;pnl=0;positions=[];history=[];equity=[n];render()};render();setScanner(true);load();
 </script></body></html>"""
+
+
+@app.get("/manifest.webmanifest")
+async def web_manifest():
+    return {
+        "id": "/",
+        "name": "Kalshi Paper Scalper",
+        "short_name": "Paper Scalper",
+        "description": "Kalshi market scanner and simulated paper-trading dashboard.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#070b12",
+        "theme_color": "#070b12",
+        "icons": [
+            {"src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+        ]
+    }
+
+@app.get("/app-icon.svg")
+async def app_icon():
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#070b12"/><rect x="32" y="32" width="448" height="448" rx="88" fill="#101e2d" stroke="#29425a" stroke-width="8"/><path d="M256 90 390 166 390 318 256 394 122 318 122 166Z" fill="none" stroke="#49e2ac" stroke-width="20" stroke-linejoin="round"/><path d="M162 282 218 224 258 256 340 172" fill="none" stroke="#6baeff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><circle cx="340" cy="172" r="17" fill="#f5c66a"/></svg>"""
+    return Response(content=svg, media_type="image/svg+xml")
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
