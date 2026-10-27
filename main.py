@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
 app = FastAPI(title="Kalshi Paper Scalper")
+from scanner_api import router as scanner_router
+app.include_router(scanner_router)
 KALSHI = "https://api.elections.kalshi.com/trade-api/v2"
 
 PAGE = r"""<!doctype html>
@@ -71,7 +73,24 @@ function trade(t,side){let m=markets.find(x=>x.ticker===decodeURIComponent(t));i
 function closePos(id){let p=positions.find(x=>x.id===id);if(!p)return;let m=markets.find(x=>x.ticker===p.ticker);if(!p||!m)return;let exit=p.side==='yes'?m.b:100-m.a;if(!Number.isFinite(exit)||exit<0)return alert('No current quote to close; reload markets.');let proceeds=exit/100*p.qty,profit=proceeds-p.cost;balance+=proceeds;pnl+=profit;history.unshift({...p,exit,profit,closed:new Date().toLocaleTimeString()});positions=positions.filter(x=>x.id!==id);equity.push(balance);render();saveState()}
 function render(){ $('balance').textContent=money(balance);$('pnl').textContent=money(pnl);$('pnl').className=pnl>=0?'pos':'neg';$('open').textContent=positions.length;$('closed').textContent=history.length;$('positions').innerHTML=positions.length?positions.map(p=>'<tr><td>'+esc(p.title)+'</td><td>'+p.side.toUpperCase()+'</td><td>'+cents(p.entry)+'</td><td>'+p.qty+'</td><td>'+money(p.cost)+'</td><td><button onclick="closePos('+p.id+')">Close</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">No open positions.</td></tr>';$('history').innerHTML=history.length?history.map(p=>'<tr><td>'+esc(p.title)+'</td><td>'+p.side.toUpperCase()+'</td><td>'+cents(p.entry)+' → '+cents(p.exit)+'</td><td>'+p.qty+'</td><td class="'+(p.profit>=0?'pos':'neg')+'">'+money(p.profit)+'</td><td>'+p.closed+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No closed trades.</td></tr>';draw()}
 function draw(){let v=equity.concat([balance]),lo=Math.min(...v),hi=Math.max(...v);if(lo===hi){lo--;hi++}let points=v.map((n,i)=>(i/(Math.max(1,v.length-1))*690+5)+','+(145-(n-lo)/(hi-lo)*135)).join(' ');$('chart').innerHTML='<polyline points="'+points+'" fill="none" stroke="#43d39e" stroke-width="3"/>'}
-let scannerTimer=null,scannerOn=true;function setScanner(on){scannerOn=on;$('scanToggle').textContent=on?'Pause scanning':'Resume scanning';$('scanStatus').textContent=on?'Auto-refresh every 15 seconds':'Scanner paused';$('scanStatus').className='status '+(on?'good':'');if(scannerTimer)clearInterval(scannerTimer);scannerTimer=on?setInterval(()=>{if(!document.hidden)load()},15000):null}
+let scannerTimer=null,scannerOn=true;
+async function setScanner(on){
+ scannerOn=on;
+ $('scanToggle').textContent=on?'Pause scanning':'Resume scanning';
+ $('scanStatus').textContent=on?'Server scanner enabled':'Scanner paused';
+ $('scanStatus').className='status '+(on?'good':'');
+ try{await fetch('/api/scanner/'+(on?'start':'stop'),{method:'POST'});}catch(e){console.warn('Server scanner control failed',e)}
+ if(scannerTimer)clearInterval(scannerTimer);
+ scannerTimer=on?setInterval(()=>{if(!document.hidden)load()},15000):null;
+}
+async function refreshScannerStatus(){
+ try{const r=await fetch('/api/scanner/status');const s=await r.json();
+ scannerOn=!!s.enabled;
+ $('scanToggle').textContent=scannerOn?'Pause scanning':'Resume scanning';
+ $('scanStatus').textContent=scannerOn?'Server scan every '+s.interval_seconds+'s':'Scanner paused';
+ $('scanStatus').className='status '+(scannerOn?'good':'');
+ }catch(e){$('scanStatus').textContent='Scanner status unavailable'}
+}
 $('load').onclick=load;$('scanToggle').onclick=()=>setScanner(!scannerOn);$('filter').onchange=renderMarkets;$('reset').onclick=()=>{let n=Number($('resetAmount').value);if(!(n>0&&Number.isFinite(n)))return alert('Enter a positive amount');if(!confirm('Reset paper account to '+money(n)+'? This clears trades and positions.'))return;balance=n;pnl=0;positions=[];history=[];equity=[n];previousQuotes={};seenSignals=new Set();render();saveState()};restoreState();render();setScanner(true);load();
 </script></body></html>"""
 
